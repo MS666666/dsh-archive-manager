@@ -7,7 +7,8 @@
   resolved from this script's own location, the target profile is located
   through -ProfileDir (highest priority), then $env:DSH_HOME, then -DSHHome,
   then the default ~/.dsh. It copies only the shipped files (whitelist:
-  lib/, client/, cordis.patch.yml, LICENSE, README.md, package.json) into the
+  lib/, client/, cordis.patch.yml, LICENSE, README.md, README.zh.md,
+  package.json) into the
   profile's node_modules, registers the dependency and bundle in the profile
   manifest using the plugin's OWN version, and verifies the written JSON
   with Node itself (no BOM, valid JSON, entries present) before reporting
@@ -110,7 +111,7 @@ Write-Host "Installing $PluginName@$PluginVersion -> $profile"
 # ---------------------------------------------------------------------------
 $target = Join-Path $profile "node_modules\$PluginName"
 if (-not $DryRun -and -not $SkipCopy) {
-    $shipped = @('lib', 'client', 'cordis.patch.yml', 'LICENSE', 'README.md', 'package.json')
+    $shipped = @('lib', 'client', 'cordis.patch.yml', 'LICENSE', 'README.md', 'README.zh.md', 'package.json')
     $targetTemp = Join-Path $profile "node_modules\.$PluginName-install"
     if (Test-Path $targetTemp) { Remove-Item -Recurse -Force $targetTemp }
     New-Item -ItemType Directory -Force -Path $targetTemp | Out-Null
@@ -126,7 +127,7 @@ if (-not $DryRun -and -not $SkipCopy) {
     Log "installed files at $target"
 }
 elseif ($DryRun) {
-    Write-Host "  [dry-run] would copy: lib/, client/, cordis.patch.yml, LICENSE, README.md, package.json -> $target"
+    Write-Host "  [dry-run] would copy: lib/, client/, cordis.patch.yml, LICENSE, README.md, README.zh.md, package.json -> $target"
 }
 else {
     Log "skipping file copy (-SkipCopy); manifest only"
