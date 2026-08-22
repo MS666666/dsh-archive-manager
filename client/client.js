@@ -31,6 +31,9 @@ window.__ModuleLoader__.load({
 			onDiskNo: "否",
 			delete: "删除",
 			deleting: "删除中…",
+			restore: "还原",
+			restoring: "还原中…",
+			restoreFailed: "还原失败。",
 			confirmTitle: "确认删除会话？",
 			confirmBody: "该操作会连同会话日志文件、归档标记与投影缓存一起删除，无法恢复。",
 			cancel: "取消",
@@ -51,6 +54,9 @@ window.__ModuleLoader__.load({
 			onDiskNo: "No",
 			delete: "Delete",
 			deleting: "Deleting…",
+			restore: "Restore",
+			restoring: "Restoring…",
+			restoreFailed: "Restore failed.",
 			confirmTitle: "Delete this session?",
 			confirmBody: "This permanently removes the session log, archive marker, and projection cache. It cannot be undone.",
 			cancel: "Cancel",
@@ -59,8 +65,8 @@ window.__ModuleLoader__.load({
 			none: "—"
 		};
 
-		/** One archived-session row with a delete button; userId-path free, purely presentational. */
-		function ArchiveRow({ row, t, onDelete, busy }) {
+		/** One archived-session row with restore + delete buttons; userId-path free, purely presentational. */
+		function ArchiveRow({ row, t, onRestore, onDelete, busy }) {
 			const created = row.createdAt != null ? new Date(row.createdAt).toLocaleString() : t("none");
 			const title = row.title || row.sessionId;
 			return react_jsx_runtime.jsx("div", {
@@ -88,31 +94,127 @@ window.__ModuleLoader__.load({
 							})
 						]
 					}),
-					react_jsx_runtime.jsx("button", {
-						type: "button",
-						disabled: busy,
-						onClick: () => onDelete(row.sessionId),
-						style: {
-							flex: "0 0 auto",
-							padding: "6px 12px",
-							borderRadius: 6,
-							border: "1px solid rgba(220,80,80,.5)",
-							background: "rgba(220,80,80,.12)",
-							color: "var(--dsh-danger, #dc5050)",
-							cursor: busy ? "default" : "pointer",
-							opacity: busy ? 0.5 : 1
-						},
-						children: busy ? t("deleting") : t("delete")
+					react_jsx_runtime.jsx("div", {
+						style: { flex: "0 0 auto", display: "flex", gap: 6 },
+						children: [
+							react_jsx_runtime.jsx("button", {
+								type: "button",
+								disabled: busy,
+								onClick: () => onRestore(row.sessionId),
+								style: {
+									padding: "6px 12px",
+									borderRadius: 6,
+									border: "1px solid rgba(80,170,90,.5)",
+									background: "rgba(80,170,90,.12)",
+									color: "var(--dsh-success, #4aa05a)",
+									cursor: busy ? "default" : "pointer",
+									opacity: busy ? 0.5 : 1
+								},
+								children: busy ? t("restoring") : t("restore")
+							}),
+							react_jsx_runtime.jsx("button", {
+								type: "button",
+								disabled: busy,
+								onClick: () => onDelete(row),
+								style: {
+									padding: "6px 12px",
+									borderRadius: 6,
+									border: "1px solid rgba(220,80,80,.5)",
+									background: "rgba(220,80,80,.12)",
+									color: "var(--dsh-danger, #dc5050)",
+									cursor: busy ? "default" : "pointer",
+									opacity: busy ? 0.5 : 1
+								},
+								children: busy ? t("deleting") : t("delete")
+							})
+						]
 					})
 				]
 			});
 		}
 
-		/** The settings-section body: fetch archived list, render rows with delete. */
+		/** Self-drawn confirm dialog replacing the browser-native confirm(): fixed overlay,
+		 * centered card, Esc or overlay click cancels, buttons styled like the row actions. */
+		function ConfirmModal({ t, title, onCancel, onConfirm }) {
+			react.useEffect(() => {
+				const onKey = (event) => {
+					if (event.key === "Escape") onCancel();
+				};
+				globalThis.addEventListener("keydown", onKey);
+				return () => globalThis.removeEventListener("keydown", onKey);
+			}, [onCancel]);
+			return react_jsx_runtime.jsx("div", {
+				style: {
+					position: "fixed",
+					inset: 0,
+					zIndex: 1000,
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "center",
+					background: "rgba(0,0,0,.45)"
+				},
+				onClick: onCancel,
+				children: react_jsx_runtime.jsxs("div", {
+					onClick: (event) => event.stopPropagation(),
+					style: {
+						background: "var(--dsw-alias-bg-overlay, #202227)",
+						border: "1px solid var(--dsw-alias-border-l2, rgba(128,128,128,.35))",
+						borderRadius: 12,
+						padding: "18px 20px",
+						width: "min(420px, calc(100% - 48px))",
+						boxShadow: "0 12px 40px rgba(0,0,0,.5)"
+					},
+					children: [
+						react_jsx_runtime.jsx("div", { style: { fontWeight: 600, fontSize: 15, marginBottom: 10, color: "var(--dsw-alias-brand-primary, #4176e6)" }, children: t("confirmTitle") }),
+						react_jsx_runtime.jsxs("div", {
+							style: { fontSize: 13, lineHeight: 1.5, marginBottom: 16, color: "var(--dsw-alias-label-primary, inherit)" },
+							children: [
+								react_jsx_runtime.jsx("div", { style: { fontWeight: 600, marginBottom: 6, wordBreak: "break-all" }, children: title }),
+								t("confirmBody")
+							]
+						}),
+						react_jsx_runtime.jsxs("div", {
+							style: { display: "flex", justifyContent: "flex-end", gap: 8 },
+							children: [
+								react_jsx_runtime.jsx("button", {
+									type: "button",
+									onClick: onCancel,
+									style: {
+										padding: "6px 14px",
+										borderRadius: 6,
+										border: "1px solid var(--dsw-alias-border-l2, rgba(128,128,128,.35))",
+										background: "transparent",
+										color: "var(--dsw-alias-label-primary, inherit)",
+										cursor: "pointer"
+									},
+									children: t("cancel")
+								}),
+								react_jsx_runtime.jsx("button", {
+									type: "button",
+									onClick: onConfirm,
+									style: {
+										padding: "6px 14px",
+										borderRadius: 6,
+										border: "1px solid rgba(220,80,80,.5)",
+										background: "rgba(220,80,80,.12)",
+										color: "var(--dsh-danger, #dc5050)",
+										cursor: "pointer"
+									},
+									children: t("confirmOk")
+								})
+							]
+						})
+					]
+				})
+			});
+		}
+
+		/** The settings-section body: fetch archived list, render rows with restore/delete. */
 		function ArchiveManagerSection({ t }) {
 			const [rows, setRows] = react.useState(null);
 			const [error, setError] = react.useState(null);
 			const [busyId, setBusyId] = react.useState(null);
+			const [pendingDelete, setPendingDelete] = react.useState(null);
 
 			const load = react.useCallback(() => {
 				setError(null);
@@ -134,9 +236,38 @@ window.__ModuleLoader__.load({
 				load();
 			}, [load]);
 
-			const onDelete = react.useCallback((sessionId) => {
-				const confirmed = globalThis.confirm(t("confirmTitle") + "\n\n" + t("confirmBody"));
-				if (!confirmed) return;
+			const onRestore = react.useCallback((sessionId) => {
+				setBusyId(sessionId);
+				fetch("/dsh-archive-manager-plus/restore", {
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({ sessionId })
+				})
+					.then((res) => res.json())
+					.then((body) => {
+						// The main sidebar un-hides the session via the host's
+						// archived-sessions-changed event; here we just refresh
+						// the archive list so the row disappears.
+						if (body && (body.ok === true || body.restored === true)) {
+							load();
+						}
+						else {
+							setError((body && body.error) || t("restoreFailed"));
+							setBusyId(null);
+						}
+					})
+					.catch(() => {
+						setError(t("restoreFailed"));
+						setBusyId(null);
+					});
+			}, [t, load]);
+
+			const onDelete = react.useCallback((row) => {
+				setPendingDelete(row); // open the self-drawn confirm dialog
+			}, []);
+
+			const confirmDelete = react.useCallback((sessionId) => {
+				setPendingDelete(null);
 				setBusyId(sessionId);
 				fetch("/dsh-archive-manager-plus/delete", {
 					method: "POST",
@@ -145,7 +276,9 @@ window.__ModuleLoader__.load({
 				})
 					.then((res) => res.json())
 					.then((body) => {
-						if (body && body.ok === true) {
+						// Accept both { ok: true } (list-style contract) and the
+						// { deleted: true } success payload the old host sent.
+						if (body && (body.ok === true || body.deleted === true)) {
 							load();
 						}
 						else {
@@ -174,6 +307,7 @@ window.__ModuleLoader__.load({
 					row,
 					t,
 					busy: busyId === row.sessionId,
+					onRestore,
 					onDelete
 				}, row.sessionId)) });
 			}
@@ -182,7 +316,13 @@ window.__ModuleLoader__.load({
 				style: { display: "flex", flexDirection: "column", gap: 8, padding: "4px 0" },
 				children: [
 					react_jsx_runtime.jsx("div", { style: { fontSize: 13, opacity: 0.8, padding: "0 12px" }, children: t("desc") }),
-					body
+					body,
+					pendingDelete === null ? null : react_jsx_runtime.jsx(ConfirmModal, {
+						t,
+						title: pendingDelete.title || pendingDelete.sessionId,
+						onCancel: () => setPendingDelete(null),
+						onConfirm: () => confirmDelete(pendingDelete.sessionId)
+					})
 				]
 			});
 		}
