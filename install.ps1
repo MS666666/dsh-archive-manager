@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Install dsh-archive-manager into a DeepSeek Harness web profile.
+  Install dsh-archive-manager-plus into a DeepSeek Harness web profile.
 
 .DESCRIPTION
   Placeless one-shot installer. Run it from anywhere: the plugin root is
@@ -11,7 +11,7 @@
   profile's node_modules, registers the dependency and bundle in the profile
   manifest using the plugin's OWN version, and verifies the written JSON
   with Node itself (no BOM, valid JSON, entries present) before reporting
-  success. The first run keeps a backup at package.json.dsh-archive-manager.bak;
+  success. The first run keeps a backup at package.json.dsh-archive-manager-plus.bak;
   a failed verify restores it automatically.
 
   Compatible with Windows PowerShell 5.1 and PowerShell 7: all profile JSON

@@ -1,4 +1,4 @@
 # dsh bundle patch: inserts this plugin into a profile's layer stack.
 - insert:
-    - id: dsh-archive-manager
-      name: 'dsh-archive-manager'
+    - id: dsh-archive-manager-plus
+      name: 'dsh-archive-manager-plus'

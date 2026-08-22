@@ -1,5 +1,5 @@
 {
-  "name": "dsh-archive-manager",
+  "name": "dsh-archive-manager-plus",
   "description": "归档管理：在设置页列出已归档会话，并提供真正的删除（含会话文件与记账清理）。",
   "version": "0.1.0",
   "type": "module",

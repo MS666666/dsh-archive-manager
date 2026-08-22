@@ -1,5 +1,5 @@
 /**
- * dsh-archive-manager browser half: a "归档管理" settings section that lists
+ * dsh-archive-manager-plus browser half: a "归档管理" settings section that lists
  * archived sessions and lets the user delete them for real.
  *
  * Client-plugin contract (see dshmarket for the reference shape):
@@ -8,7 +8,7 @@
  *   slots (slot registry) and locale services made available through inject.
  */
 window.__ModuleLoader__.load({
-	id: "dsh-archive-manager",
+	id: "dsh-archive-manager-plus",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
@@ -17,7 +17,7 @@ window.__ModuleLoader__.load({
 		let react_jsx_runtime = require("react/jsx-runtime");
 
 		/** Dictionary namespace owned by this plugin. */
-		const NS = "dsh-archive-manager";
+		const NS = "dsh-archive-manager-plus";
 		const zh = {
 			nav: "归档管理",
 			desc: "管理已归档的会话：归档只是从会话列表隐藏；在这里可以彻底删除（会话日志与记账一并移除）。",
@@ -117,7 +117,7 @@ window.__ModuleLoader__.load({
 			const load = react.useCallback(() => {
 				setError(null);
 				setRows(null);
-				fetch("/dsh-archive-manager/list", { cache: "no-store" })
+				fetch("/dsh-archive-manager-plus/list", { cache: "no-store" })
 					.then((res) => res.json())
 					.then((body) => {
 						if (body && body.ok === true) {
@@ -138,7 +138,7 @@ window.__ModuleLoader__.load({
 				const confirmed = globalThis.confirm(t("confirmTitle") + "\n\n" + t("confirmBody"));
 				if (!confirmed) return;
 				setBusyId(sessionId);
-				fetch("/dsh-archive-manager/delete", {
+				fetch("/dsh-archive-manager-plus/delete", {
 					method: "POST",
 					headers: { "content-type": "application/json" },
 					body: JSON.stringify({ sessionId })
@@ -187,7 +187,7 @@ window.__ModuleLoader__.load({
 			});
 		}
 
-		const name = "dsh-archive-manager";
+		const name = "dsh-archive-manager-plus";
 		/** Required services (cordis fiber inject). */
 		const inject = [
 			"slots",
@@ -202,7 +202,7 @@ window.__ModuleLoader__.load({
 			ctx.effect(() => ctx.locale.register(NS, {
 				zh,
 				en
-			}), "dsh-archive-manager: dictionaries");
+			}), "dsh-archive-manager-plus: dictionaries");
 			const t = ctx.locale.bind(NS);
 			ctx.slots.inject("settings.section", () => ctx.slots.register({
 				name: "settings.section",
