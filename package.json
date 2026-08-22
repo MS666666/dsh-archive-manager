@@ -1,7 +1,7 @@
 {
   "name": "dsh-archive-manager-plus",
   "description": "归档管理：在设置页列出已归档会话，并提供真正的删除（含会话文件与记账清理）。",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "type": "module",
   "main": "lib/index.js",
   "license": "MIT",
