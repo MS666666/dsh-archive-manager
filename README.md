@@ -1,67 +1,99 @@
 # dsh-archive-manager
 
-归档管理插件：在 Web 设置页新增「归档管理」标签页，列出所有已归档会话，每条右侧带删除按钮，点击后**彻底删除**该会话（会话日志文件、归档标记、投影缓存一并清理）。
+> 归档管理：在设置页列出已归档会话，并提供真正的删除（会话日志、归档标记、投影缓存一并清理）。
+>
+> Archive manager: list archived sessions in the Settings page and delete them for real (session log, archive marker, and projection cache removed together).
 
-> 背景：DSH 的归档只把会话从列表视图隐藏，`session.jsonl.zstd` 日志与记账原样保留，且官方 UI 没有删除入口。本插件补齐「真删除」能力。
+[![GitHub](https://img.shields.io/badge/GitHub-MS666666%2Fdsh--archive--manager-181717?logo=github&logoColor=white)](https://github.com/MS666666/dsh-archive-manager)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## 结构（双半插件）
+![cover](/docs/screenshot.png)
 
-```
-dsh-archive-manager/
-├── package.json         # dsh.bundle.patch + dsh.client 元数据、exports
-├── cordis.patch.yml     # 把插件插入 profile 层栈
-├── lib/
-│   ├── index.js         # host 半：注册 webServer 路由
-│   └── routes.js        # /dsh-archive-manager/list + /delete
-└── client/
-    └── client.js        # 浏览器半：注册 settings.section「归档管理」页面
-```
+## 特性 / Features
 
-- **host 半**：`ctx.inject(['webServer'])` → `webServer.register({kind:'exact', ...})`，两条路由：
-  - `GET  /dsh-archive-manager/list` — 读 `$DSH_HOME/storages/workspace.json` 的 `global.archivedSessionIds`，配合 `session_projcache.json` 补标题/创建时间，检查磁盘日志是否存在
-  - `POST /dsh-archive-manager/delete` — 仅同源 POST，sessionId 严格校验（`^session-[0-9a-fA-F-]+$`），然后：归档集合移除 → 各 workspace 的 `sessionIds` 移除 → 删除 `$DSH_HOME/sessions/<编码>/<session-id>/` → 清理投影缓存条目
-- **浏览器半**：`settings.section`（`kind:"list"`）注册一页，section row 渲染列表 + 删除按钮，删除前 `confirm` 二次确认。
+- 设置页新增**「归档管理」**标签页（官方 `settings.section` slot 机制，与「通用」「模型」等同级）
+- 列出所有**已归档会话**：标题、创建时间、日志是否仍在磁盘
+- 每条右侧**删除按钮**，二次确认后**彻底删除**
+- 安全设计：仅接受同源 POST、sessionId 严格校验、写后由 Node 自校验、失败自动回滚备份
+- 跨 PowerShell 版本无 BOM 隐患（Windows PowerShell 5.1 与 PowerShell 7 行为一致）
 
-## 安装（web profile）
+## 背景 / Why
 
-**推荐：一键安装脚本**（已自动处理 Windows PowerShell 5.1 的 BOM 陷阱）：
+DSH 的「归档会话」只是把会话从分组视图隐藏：`session.jsonl.zstd` 日志与记账**原样保留**，且官方 UI 没有删除入口。本插件补齐「真删除」能力——归档只是隐藏，需要真正清理磁盘时可以在这里完成。
+
+## 工作原理 / How it works
+
+双半插件（与官方插件生态一致的形态）：
+
+| 半 | 位置 | 职责 |
+|---|---|---|
+| host 半 | `lib/` | 挂载两条 HTTP 路由：`GET /dsh-archive-manager/list` 列出归档会话；`POST /dsh-archive-manager/delete` 删除（会话目录 + workspace 记账 + 投影缓存） |
+| 浏览器半 | `client/` | 注册 `settings.section` 页面，渲染列表 + 删除按钮（先 `confirm` 二次确认，再调用 host 路由） |
+
+删除动作的落盘范围：
+
+1. `workspace.json` 的 `global.archivedSessionIds` 移除该 id
+2. 各 workspace 的 `sessionIds` 移除该 id
+3. 删除 `<DSH_HOME>/sessions/<workspace-encoded>/<session-id>/` 目录
+4. `session_projcache.json` 中该会话条目清除
+
+> 不清理 `cost-meter/ledger.json`（费用流水属历史记录，予以保留）。
+
+## 安装 / Install
+
+### 方式一：一键安装脚本（推荐）
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File D:\deepseek-harness\dsh-archive-manager\install.ps1
+powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-脚本会：复制插件到 `profiles/web/node_modules/` → 在 `package.json` 注册依赖与 bundle → **用 Node 自校验写出的 JSON**（无 BOM、合法、条目齐全）后才报告成功；失败自动回滚备份（`package.json.dsh-archive-manager.bak`）。
+脚本自定位插件根目录（可从任意位置运行），自动完成：白名单复制发布物 → 注册依赖与 bundle → Node 自校验（无 BOM / JSON 合法 / 条目齐全）→ 失败回滚备份。
 
-> ⚠️ **BOM 陷阱（已修复）**：旧版脚本用 `Set-Content -Encoding UTF8`，在 Windows PowerShell 5.1 下会向 `package.json` 写入 UTF-8 BOM（`﻿`），Node 的 `JSON.parse` 拒绝它并导致 `dsh web` 启动即崩溃（`Unexpected token '﻿'`）。新脚本改用 .NET `WriteAllText` + `UTF8Encoding($false)`，两个 PowerShell 版本下均写出**无 BOM** 的 UTF-8。若手头的 `package.json` 已带 BOM，运行本脚本会顺带清掉并保留备份。
+| 参数 | 说明 |
+|---|---|
+| `-ProfileDir <path>` | 显式指定 profile 目录（优先于自动探测） |
+| `-ProfileName <name>` | profile 名，默认 `web` |
+| `-DSHHome <path>` | 指定 DSH home（默认取 `$env:DSH_HOME`，其次 `~/.dsh`） |
+| `-DryRun` | 只预览，不写入 |
+| `-SkipCopy` | 跳过复制，只更新 manifest |
 
-手动等价操作（若不用脚本，务必用无 BOM 的 UTF-8 保存）：
+```powershell
+.\install.ps1 -DryRun                    # 预览
+.\install.ps1 -DSHHome <your-dsh-home>   # 指定安装位置
+```
 
-1. 把整个 `dsh-archive-manager` 目录复制到 `$DSH_HOME/profiles/web/node_modules/dsh-archive-manager/`。
-2. 在 `$DSH_HOME/profiles/web/package.json` 的 `dependencies` 加：
-   ```json
-   "dsh-archive-manager": "0.1.0"
-   ```
-3. 在 `dsh.profile.bundles` 数组尾部加：
-   ```json
-   "dsh-archive-manager"
-   ```
-4. 保存后重启 `dsh web` 并刷新页面。建议保存后用 `node -e "JSON.parse(require('fs').readFileSync('package.json','utf8'))"` 验证。
+### 方式二：手动
 
-## 测试
+1. 复制 `lib/`、`client/`、`cordis.patch.yml`、`LICENSE`、`README.md`、`package.json` 到
+   `<profile>/node_modules/dsh-archive-manager/`
+2. 在 `<profile>/package.json` 的 `dependencies` 加入：`"dsh-archive-manager": "<version>"`
+3. 在 `dsh.profile.bundles` 尾部加入：`"dsh-archive-manager"`
+4. 保存（务必 UTF-8 **无 BOM**）后重启 DSH，并刷新页面
 
-1. 在 Web 侧边栏任一会话行 `⋯` 菜单选择「归档会话」，归档 1–2 个会话。
-2. 打开 设置（齿轮）→「归档管理」：应列出刚归档的会话，显示标题/创建时间/日志是否在盘。
-3. 点「删除」→ 确认 → 行消失。
-4. 验证磁盘：`D:\deepseek-harness\.dsh\sessions\--D-deepseek-harness--\<session-id>\` 目录已删除，
-   `storages/workspace.json` 的 `archivedSessionIds` 与各 workspace `sessionIds` 中不再含该 id。
+> ⚠️ BOM 陷阱：`package.json` 若带 UTF-8 BOM 会导致 DSH 启动报 `Unexpected token '﻿'`。
+> 推荐用一键脚本安装（已内置无 BOM 写入与 Node 校验）。
 
-## 说明与限制
+## 使用 / Usage
 
-- 删除只处理**已归档**会话；在删除前该会话不应处于运行中（运行中的删除由调用方负责）。
-- 宿主内存态（如 `session.list` 的残留行）在删除后到下次重连/刷新间可能仍短暂可见——文件与注册表层是一致且持久的事实。
-- 不清理 `storages/cost-meter/ledger.json`（费用流水为历史记录，保留）。
+1. 侧边栏任一会话行 `⋯` 菜单 → **归档会话**（归档 1–2 个会话备用）
+2. 打开 **设置（齿轮）→ 归档管理**
+3. 列表展示已归档会话：标题 / 创建时间 / 日志是否在盘
+4. 点击右侧 **删除** → 确认 → 该项消失，磁盘日志一并清除
 
-## 开发/重新构建
+## 隐私与安全 / Privacy & Security
 
-浏览器半是纯手写 CJS bundle（无构建步骤），直接改 `client/client.js` 后刷新即可（HMR 生效）。
-host 半同为纯 ESM 源码，改 `lib/` 后重启 dsh web。
+- 删除范围**仅限已归档会话**；运行中的会话不应执行删除（由调用方负责判断）
+- 删除会移除磁盘日志文件与关联记账；**费用流水保留**
+- 宿主内存态（如 `session.list` 残留行）在删除后到下次重连/刷新间可能短暂可见——文件与注册表层始终是一致且持久的
+- 网关侧仅接受同源请求，sessionId 有严格的格式白名单（`session-` + 十六进制/连字符），杜绝路径穿越
+- 本 README 中的路径均为**占位符**（`<DSH_HOME>`、`<profile>`…），请勿在 issue / 讨论中粘贴本机绝对路径、用户名或会话 id
+
+## 开发 / Development
+
+- 浏览器半为纯手写 CJS bundle（无构建步骤）：改 `client/client.js` 后刷新页面可见（HMR 生效）
+- host 半为纯 ESM：改 `lib/` 后重启 DSH
+- 版本号改动后重新运行 `install.ps1` 即可同步 manifest（无需改脚本）
+
+## 许可 / License
+
+[MIT](LICENSE)

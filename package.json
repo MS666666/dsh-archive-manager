@@ -5,6 +5,14 @@
   "type": "module",
   "main": "lib/index.js",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MS666666/dsh-archive-manager.git"
+  },
+  "homepage": "https://github.com/MS666666/dsh-archive-manager",
+  "bugs": {
+    "url": "https://github.com/MS666666/dsh-archive-manager/issues"
+  },
   "keywords": [
     "deepseek",
     "harness",
