@@ -347,6 +347,9 @@ window.__ModuleLoader__.load({
 			ctx.slots.inject("settings.section", () => ctx.slots.register({
 				name: "settings.section",
 				id: "archive-manager",
+				// priority -1 < 全家桶归档页(@mlgbnb/dsh-archive-manager)的默认 0：
+				// 同 id 不同优先级可共存不报错，且最低者渲染——本页胜出，对方被遮蔽。
+				priority: -1,
 				order: 60,
 				label: () => t("nav"),
 				locale: NS,
