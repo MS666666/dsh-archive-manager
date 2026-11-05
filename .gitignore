@@ -1,0 +1,8 @@
+node_modules/
+.compat-runtime/
+.compat-reference/
+.npm-cache/
+.integration-*/
+.integration-running-*/
+.archive-rc5-*/
+*.tgz

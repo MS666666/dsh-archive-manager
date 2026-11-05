@@ -1,0 +1,11 @@
+import { mkdirSync, copyFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+const root = new URL('../../.compat-runtime/', import.meta.url);
+mkdirSync(root, { recursive: true });
+copyFileSync(new URL('runtime.package.json', import.meta.url), new URL('package.json', root));
+copyFileSync(new URL('runtime.package-lock.json', import.meta.url), new URL('package-lock.json', root));
+if (!process.env.npm_execpath) throw new Error('Run this helper with npm run setup:integration');
+const result = spawnSync(process.execPath, [process.env.npm_execpath, 'ci', '--prefix', fileURLToPath(root), '--ignore-scripts', '--no-audit', '--no-fund', '--cache', fileURLToPath(new URL('../../.npm-cache', import.meta.url))], { stdio: 'inherit' });
+if (result.error) throw result.error;
+process.exitCode = result.status ?? 1;

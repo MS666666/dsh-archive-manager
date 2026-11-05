@@ -14,12 +14,17 @@ window.__ModuleLoader__.load({
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 		let react = require("react");
+        const ui = require("@deepseek-ai/dsh-client-ui-primitives");
 		let react_jsx_runtime = require("react/jsx-runtime");
 
 		/** Dictionary namespace owned by this plugin. */
 		const NS = "dsh-archive-manager-plus";
 		const zh = {
 			nav: "归档管理",
+            deleteSession: "删除会话",
+            deleteSessionBody: "将停止此会话中的运行任务，并永久删除会话日志和工作区记录，无法恢复。",
+            deleteSessionFailed: "删除未完成，会话可能已被归档。请重试或到归档管理中查看。",
+            close: "关闭",
 			desc: "管理已归档的会话：归档只是从会话列表隐藏；在这里可以彻底删除（会话日志与记账一并移除）。",
 			empty: "暂无已归档的会话。",
 			loading: "加载中…",
@@ -43,6 +48,10 @@ window.__ModuleLoader__.load({
 		};
 		const en = {
 			nav: "Archive manager",
+            deleteSession: "Delete session",
+            deleteSessionBody: "Stop running tasks and permanently delete this session's log and workspace records. This cannot be undone.",
+            deleteSessionFailed: "Deletion did not finish. The session may have been archived. Retry or check Archive manager.",
+            close: "Close",
 			desc: "Manage archived sessions: archiving only hides a session from the list; here you can delete it for real (log and accounting removed).",
 			empty: "No archived sessions yet.",
 			loading: "Loading…",
@@ -219,6 +228,7 @@ window.__ModuleLoader__.load({
 			const load = react.useCallback(() => {
 				setError(null);
 				setRows(null);
+				setBusyId(null);
 				fetch("/dsh-archive-manager-plus/list", { cache: "no-store" })
 					.then((res) => res.json())
 					.then((body) => {
@@ -293,11 +303,8 @@ window.__ModuleLoader__.load({
 			}, [t, load]);
 
 			let body;
-			if (error !== null) {
-				body = react_jsx_runtime.jsx("div", { style: { padding: 12 }, children: error });
-			}
-			else if (rows === null) {
-				body = react_jsx_runtime.jsx("div", { style: { padding: 12, opacity: 0.7 }, children: t("loading") });
+			if (rows === null) {
+				body = react_jsx_runtime.jsx("div", { style: { padding: 12, opacity: 0.7 }, children: error ? null : t("loading") });
 			}
 			else if (rows.length === 0) {
 				body = react_jsx_runtime.jsx("div", { style: { padding: 12, opacity: 0.7 }, children: t("empty") });
@@ -316,6 +323,11 @@ window.__ModuleLoader__.load({
 				style: { display: "flex", flexDirection: "column", gap: 8, padding: "4px 0" },
 				children: [
 					react_jsx_runtime.jsx("div", { style: { fontSize: 13, opacity: 0.8, padding: "0 12px" }, children: t("desc") }),
+                    error === null ? null : react_jsx_runtime.jsx("div", {
+                        role: "alert",
+                        style: { padding: "8px 12px", color: "var(--dsh-danger, #dc5050)", whiteSpace: "pre-wrap" },
+                        children: error
+                    }),
 					body,
 					pendingDelete === null ? null : react_jsx_runtime.jsx(ConfirmModal, {
 						t,
@@ -326,6 +338,65 @@ window.__ModuleLoader__.load({
 				]
 			});
 		}
+
+        function DeleteSessionMenuItem({ sessionId, displayTitle, useMenuOpenState, requestDelete, deleteT, nativeMenuAvailable }) {
+            const [, setOpen] = useMenuOpenState();
+            if (nativeMenuAvailable?.()) return null;
+            return react_jsx_runtime.jsx(ui.MenuItemButton, {
+                icon: react_jsx_runtime.jsx("svg", {
+                    width: 20, height: 20, viewBox: "0 0 24 24", fill: "none",
+                    stroke: "currentColor", strokeWidth: 1.5, "aria-hidden": true,
+                    style: { color: "var(--dsh-danger, #dc5050)" },
+                    children: react_jsx_runtime.jsx("path", { d: "M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7M14 10v7" })
+                }),
+                onSelect: () => {
+                    setOpen(false);
+                    requestDelete({ sessionId, title: displayTitle || sessionId });
+                },
+                children: react_jsx_runtime.jsx("span", {
+                    style: { color: "var(--dsh-danger, #dc5050)" }, children: deleteT("deleteSession")
+                })
+            });
+        }
+
+        function MenuDeleteDialog({ request, settle, deleteT }) {
+            const inFlight = react.useRef(false);
+            const [busy, setBusy] = react.useState(false);
+            const [error, setError] = react.useState(null);
+            const close = () => { if (!inFlight.current) settle(); };
+            const confirm = async () => {
+                if (inFlight.current) return;
+                inFlight.current = true;
+                setBusy(true);
+                setError(null);
+                try {
+                    const response = await fetch("/dsh-archive-manager-plus/delete", {
+                        method: "POST", headers: { "content-type": "application/json" },
+                        body: JSON.stringify({ sessionId: request.sessionId, archiveFirst: true })
+                    });
+                    const body = await response.json();
+                    if (!response.ok || body.deleted !== true) throw new Error(body.error || deleteT("deleteFailed"));
+                    settle();
+                } catch (reason) {
+                    setError(deleteT("deleteSessionFailed") + "\n" + (reason instanceof Error ? reason.message : String(reason)));
+                } finally { inFlight.current = false; setBusy(false); }
+            };
+            return react_jsx_runtime.jsx(ui.Modal, {
+                open: true, onClose: close, closeLabel: deleteT("close"),
+                title: deleteT("confirmTitle"), description: deleteT("deleteSessionBody"),
+                footer: react_jsx_runtime.jsxs(react_jsx_runtime.Fragment, { children: [
+                    react_jsx_runtime.jsx(ui.Button, { variant: "outline", disabled: busy, onClick: close, children: deleteT("cancel") }),
+                    react_jsx_runtime.jsx(ui.Button, {
+                        variant: "outline", disabled: busy, onClick: confirm,
+                        children: react_jsx_runtime.jsx("span", { style: { color: "var(--dsh-danger, #dc5050)" }, children: deleteT(busy ? "deleting" : "deleteSession") })
+                    })
+                ] }),
+                children: react_jsx_runtime.jsxs("div", { children: [
+                    react_jsx_runtime.jsx("div", { style: { wordBreak: "break-word" }, children: request.title }),
+                    error === null ? null : react_jsx_runtime.jsx("div", { role: "alert", style: { whiteSpace: "pre-wrap", marginTop: 12 }, children: error })
+                ] })
+            });
+        }
 
 		const name = "dsh-archive-manager-plus";
 		/** Required services (cordis fiber inject). */
@@ -344,6 +415,45 @@ window.__ModuleLoader__.load({
 				en
 			}), "dsh-archive-manager-plus: dictionaries");
 			const t = ctx.locale.bind(NS);
+            // Keep confirmation state outside the menu: selecting an item unmounts the menu.
+            let pending = null;
+            const listeners = new Set();
+            const update = next => { pending = next; for (const listener of listeners) listener(); };
+            const subscribe = listener => { listeners.add(listener); return () => listeners.delete(listener); };
+            const snapshot = () => pending;
+            const settle = () => update(null);
+            function DeleteOverlay() {
+                const request = react.useSyncExternalStore(subscribe, snapshot, snapshot);
+                return request === null ? null : react_jsx_runtime.jsx(MenuDeleteDialog, { request, settle, deleteT: t }, request.sessionId);
+            }
+            let nativeMenuActive = false;
+            // 0.2.2 exposes structured context menus; older hosts retain the Slot.
+            // Optional injection avoids making rc.5 depend on the new service.
+            if (typeof ctx.inject === "function") ctx.inject(["contextMenus"], nativeCtx => {
+                nativeCtx.effect(() => {
+                    const unregister = nativeCtx.contextMenus.register({
+                        id: "archive-manager.delete-session", target: "session", order: 700,
+                        resolve: ({ sessionId, displayTitle }) => [{
+                            id: "delete", label: t("deleteSession"), icon: { key: "workspace.delete" },
+                            danger: true, separatorBefore: true, afterContent: true,
+                            run: () => {
+                                nativeCtx.contextMenus.close();
+                                update({ sessionId, title: displayTitle || sessionId });
+                            }
+                        }]
+                    });
+                    nativeMenuActive = true;
+                    return () => { nativeMenuActive = false; unregister(); };
+                }, "archive-manager: native session delete menu");
+            });
+            ctx.slots.inject("sidebar.workspaces.session.menu.item", () => ctx.slots.register({
+                name: "sidebar.workspaces.session.menu.item", id: "archive-manager.delete-session", order: 500,
+                inject: () => ({ requestDelete: update, deleteT: t, nativeMenuAvailable: () => nativeMenuActive })
+            }, DeleteSessionMenuItem));
+            ctx.slots.inject("shell.overlay", () => ctx.slots.register({
+                name: "shell.overlay", id: "archive-manager.delete-confirm"
+            }, DeleteOverlay));
+
 			ctx.slots.inject("settings.section", () => ctx.slots.register({
 				name: "settings.section",
 				id: "archive-manager",

@@ -1,7 +1,7 @@
 {
   "name": "dsh-archive-manager-plus",
   "description": "归档管理：在设置页列出已归档会话，并提供真正的删除（含会话文件与记账清理）。",
-  "version": "0.1.3",
+  "version": "0.1.8",
   "type": "module",
   "main": "lib/index.js",
   "license": "MIT",
@@ -40,7 +40,8 @@
       "inject": [
         "@deepseek-ai/dsh-client-runtime",
         "@deepseek-ai/dsh-client-locale",
-        "@deepseek-ai/dsh-client-ui-settings"
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-primitives"
       ],
       "platform": "web"
     }
@@ -49,7 +50,8 @@
     "lib",
     "client",
     "cordis.patch.yml",
-    "LICENSE"
+    "LICENSE",
+    "docs/compatibility-0.2.2-rc.1.md"
   ],
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1"
@@ -58,5 +60,10 @@
     "@deepseek-ai/cordis": {
       "optional": true
     }
+  },
+  "scripts": {
+    "test": "node --test",
+    "test:integration": "node --test tests/integration/*.test.js",
+    "setup:integration": "node tests/integration/setup.mjs"
   }
 }

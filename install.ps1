@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Install dsh-archive-manager-plus into a DeepSeek Harness web profile.
 
@@ -24,10 +24,10 @@
   Highest priority; skips all home resolution when provided.
 
 .PARAMETER ProfileName
-  Profile to install into. Default "web".
+  Profile to install into. Auto-detect desktop first, then web.
 
 .PARAMETER DSHHome
-  DSH home directory, overriding $env:DSH_HOME when that is not set.
+  DSH home directory, overriding $env:DSH_HOME.
 
 .PARAMETER DryRun
   Print every action without writing or copying anything.
@@ -45,7 +45,7 @@
 [CmdletBinding()]
 param(
     [string]$ProfileDir,
-    [string]$ProfileName = 'web',
+    [string]$ProfileName,
     [string]$DSHHome,
     [switch]$DryRun,
     [switch]$SkipCopy
@@ -93,26 +93,40 @@ if ($ProfileDir) {
 }
 else {
     $homeCandidates = @()
-    if ($env:DSH_HOME) { $homeCandidates += (Join-Path $env:DSH_HOME "profiles\$ProfileName") }
-    if ($DSHHome) { $homeCandidates += (Join-Path $DSHHome "profiles\$ProfileName") }
-    $homeCandidates += (Join-Path (Join-Path $env:USERPROFILE '.dsh') "profiles\$ProfileName")
-    foreach ($candidate in $homeCandidates) {
-        if (Test-Path $candidate) { $profile = $candidate; break }
+    if (-not [string]::IsNullOrWhiteSpace($DSHHome)) { $roots = @($DSHHome) }
+    elseif (-not [string]::IsNullOrWhiteSpace($env:DSH_HOME)) { $roots = @($env:DSH_HOME) }
+    else { $roots = @((Join-Path $env:USERPROFILE '.dsh')) }
+    $names = @('desktop', 'web')
+    if ($ProfileName) { $names = @($ProfileName) }
+    foreach ($root in $roots) {
+        foreach ($name in $names) {
+            $candidate = Join-Path $root "profiles\$name"
+            $homeCandidates += $candidate
+            if (-not $profile -and (Test-Path (Join-Path $candidate 'package.json'))) { $profile = $candidate }
+        }
     }
 }
 if (-not $profile -or -not (Test-Path $profile)) {
     throw "profile not found. Provided -ProfileDir=$ProfileDir; tried: $($homeCandidates -join '; ')"
 }
 
+if (-not (Test-Path (Join-Path $profile 'package.json'))) { throw "profile manifest missing" }
+$null = Read-TextFile (Join-Path $profile 'package.json') | ConvertFrom-Json
+
 Write-Host "Installing $PluginName@$PluginVersion -> $profile"
 
 # ---------------------------------------------------------------------------
 # 3. Copy the shipped files (whitelist only) into the profile's node_modules.
 # ---------------------------------------------------------------------------
+$profile = [System.IO.Path]::GetFullPath($profile)
 $target = Join-Path $profile "node_modules\$PluginName"
 if (-not $DryRun -and -not $SkipCopy) {
     $shipped = @('lib', 'client', 'cordis.patch.yml', 'LICENSE', 'README.md', 'README.zh.md', 'package.json')
     $targetTemp = Join-Path $profile "node_modules\.$PluginName-install"
+    foreach ($installPath in @($target, $targetTemp)) {
+        $resolvedInstallPath = [System.IO.Path]::GetFullPath($installPath)
+        if (-not $resolvedInstallPath.StartsWith($profile.TrimEnd('\') + '\', [System.StringComparison]::OrdinalIgnoreCase)) { throw "install target outside profile" }
+    }
     if (Test-Path $targetTemp) { Remove-Item -Recurse -Force $targetTemp }
     New-Item -ItemType Directory -Force -Path $targetTemp | Out-Null
     foreach ($item in $shipped) {
@@ -157,13 +171,16 @@ if ($DryRun) {
 else {
     $pkg = $raw | ConvertFrom-Json
     if (-not $pkg.dependencies) { $pkg | Add-Member -NotePropertyName 'dependencies' -NotePropertyValue ([ordered]@{}) -Force }
-    if (-not $pkg.dsh.profile.bundles) { $pkg.dsh.profile.bundles = @() }
+    if (-not $pkg.dsh) { $pkg | Add-Member -NotePropertyName 'dsh' -NotePropertyValue ([pscustomobject]@{}) }
+    if (-not $pkg.dsh.profile) { $pkg.dsh | Add-Member -NotePropertyName 'profile' -NotePropertyValue ([pscustomobject]@{}) }
+    if (-not $pkg.dsh.profile.bundles) { $pkg.dsh.profile | Add-Member -NotePropertyName 'bundles' -NotePropertyValue @() -Force }
     if (-not $pkg.dependencies.$PluginName) {
         $pkg.dependencies | Add-Member -NotePropertyName $PluginName -NotePropertyValue $PluginVersion -Force
         Log "added dependency $PluginName@$PluginVersion"
     }
     else {
-        Log "dependency $PluginName already present ($($pkg.dependencies.$PluginName))"
+        $pkg.dependencies.$PluginName = $PluginVersion
+        Log "updated dependency $PluginName@$PluginVersion"
     }
     if ($pkg.dsh.profile.bundles -notcontains $PluginName) {
         $pkg.dsh.profile.bundles += $PluginName
@@ -193,7 +210,7 @@ if (-not $DryRun) {
     Write-Host "  $verifyResult"
 
     Write-Host "`nDone. Restart dsh (host half) and refresh the page (browser half):"
-    Write-Host "  dsh web"
+    Write-Host "  Desktop: restart DeepSeek Harness. Web: run dsh web."
 }
 else {
     Write-Host "`n[dry-run] complete; nothing was changed."

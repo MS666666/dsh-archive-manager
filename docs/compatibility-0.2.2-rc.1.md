@@ -1,0 +1,38 @@
+# DeepSeek Harness v0.2.2-rc.1 适配报告
+
+- 插件版本：0.1.8
+- 验证日期：2026-11-05
+- 目标：官方 npm 组件 0.2.2-rc.1；测试依赖和完整性校验锁定在 `tests/integration/runtime.package-lock.json`。
+- 官方发布说明：https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.2-rc.1
+
+## 实现
+
+1. 优先通过新版 `contextMenus` 注册 `session` 菜单贡献；显示危险操作样式，位于原生归档项之后。新版启用时旧 React 菜单项隐藏，防止重复。服务不可用时保留旧 Slot 降级路径。
+2. 同时识别旧 `announcing` 与新版 `announcement` 生命周期。新版 pending、dispatching、failed 状态不进行物理删除，完整发布后才释放会话。
+3. 取消并等待 Agent 空闲，释放作用域，刷新并关闭写入器，移除内存会话，再清理投影缓存、工作区成员和日志，发送原生侧栏移除通知。
+4. 校正删除记录时直接通过实体修改底层成员表，避免公开成员 getter 过滤掉残留 ID 后无法清除持久记录。
+5. 监听已删除 ID 的原生投影缓存写回。真实组件测试证明：重新加载虽被拒绝，创建阶段仍可能写出缓存；现在这类缓存也会清理。
+
+## 已执行验证
+
+`npm test`：20 通过，0 失败，0 跳过。
+
+- 常规检查：列表、还原、删除、非法 ID、保存失败保留日志、拒绝不完整发布、同源限制。
+- 真实宿主集成：官方 Cordis、AgentLoop、SessionStore、JSONL 写入器、WorkspaceRegistry、storageDomain、JSON 存储及 projection cache，在临时数据目录中运行生产插件路由。
+- 删除及重建：删除已加载会话，确认内存、工作区、日志、投影缓存均清除；旧快照写回后校正；关闭并重新创建整套宿主，已删除会话不再出现，另一个会话及费用测试文件保留。
+- 运行中删除：官方 AgentLoop 启动实际回合，唯一替代部分为完全离线模型适配器。确认回合正在运行后删除，验证取消信号、内存释放及工作区清理；此项使用原生 zstd 压缩日志；另一项持久存储测试覆盖无压缩日志。不调用付费模型，不执行用户工具。
+- 原生菜单：执行官方 0.2.2-rc.1 菜单注册与解析代码，验证唯一删除项、危险样式标记、目标 ID、独立确认框、取消无请求；旧菜单回归检查保留。
+
+## 重现
+
+```powershell
+npm run setup:integration
+npm test
+npm run test:integration
+```
+
+setup 仅在本仓库的 `.compat-runtime` 安装测试依赖，不修改 DSH_HOME。未安装集成依赖时，普通 `npm test` 会明确跳过真实组件测试；不能将其视为完整验证。
+
+## 验证边界
+
+未升级或重启用户正在使用的桌面客户端，未删除用户真实会话。上述宿主重建发生在测试进程中的独立 Context；桌面 Electron 界面的视觉、焦点和快捷键未手动验收。适配中的会话释放仍涉及目标版本内部结构，报告不声明对其他未来版本的兼容性。

@@ -1,6 +1,6 @@
 # dsh-archive-manager-plus
 
-> Archive manager: list archived sessions in the Settings page and delete them for real (session log, archive marker, and projection cache removed together).
+Delete DeepSeek Harness sessions from the session menu, or manage archived sessions in Settings. Deletion removes the session log and related records; archiving alone only hides the session.
 
 English | [中文](README.zh.md)
 
@@ -8,111 +8,128 @@ English | [中文](README.zh.md)
 [![GitHub](https://img.shields.io/badge/GitHub-MS666666%2Fdsh--archive--manager-181717?logo=github&logoColor=white)](https://github.com/MS666666/dsh-archive-manager)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-![cover](docs/screenshot.png)
+## Compatibility
+
+**Plugin 0.1.8 targets DeepSeek Harness v0.2.2-rc.1.** It uses the new native context-menu service and handles the updated session publication states. The legacy v0.2.1-rc.5 menu fallback remains, but the full runtime checks for this release target v0.2.2-rc.1.
+
+All **20 tests pass**, including three integration tests using pinned official Harness components. They cover native menu registration, stopping an active Agent turn, workspace synchronization, plain and zstd log deletion, projection-cache cleanup, and recreating the host from persisted data. Other sessions and historical cost records are preserved.
+
+The desktop Electron interface has not been manually verified. Session teardown uses version-specific host internals, so compatibility with other Harness versions is not assumed. See the [compatibility report](https://github.com/MS666666/dsh-archive-manager/blob/main/docs/compatibility-0.2.2-rc.1.md) for the exact scope and reproduction steps.
 
 ## Features
 
-- Adds an **Archive Manager** tab to the Settings page (official `settings.section` slot — peers with General, Models, etc.)
-- Lists all **archived sessions**: title, created time, and whether the log still exists on disk
-- A **Delete** button on each row; a confirmation dialog, then a **real** delete
-- Security-minded: same-origin POSTs only, strict session-id validation, Node self-verification after writes, automatic rollback on failure
-- No UTF-8 BOM pitfalls across PowerShell editions (Windows PowerShell 5.1 and PowerShell 7 behave identically)
+- **Delete session** in the session row's `⋯` menu, with confirmation before any change.
+- **Settings → Archive Manager**: list archived sessions with their title, creation time, and log availability; restore or permanently delete them.
+- Stop running work and release the session's writer and in-memory state before deleting its log.
+- Remove workspace membership and notify the native sidebar session feed.
+- Keep persistent deletion receipts and clean up stale archive records or late cache writes that would otherwise bring deleted entries back.
+- Require same-origin POST requests and validate session IDs before filesystem operations.
 
-## Why
+![Archive Manager example](https://raw.githubusercontent.com/MS666666/dsh-archive-manager/main/docs/screenshot.png)
 
-DSH's "archive session" only hides a session from the grouped views: the `session.jsonl.zstd` log and its accounting stay **untouched**, and the official UI has no delete entry. This plugin adds the "real delete" capability — archiving is only hiding; when you actually want the disk cleaned up, do it here.
+## Installation
 
-## How it works
+### Add Plugin — recommended
 
-A dual-half plugin (the same shape as the official plugin ecosystem):
+1. Open DeepSeek Harness → **Settings → Plugins → Add Plugin**. Depending on the UI locale, plugin management may also be available from the sidebar.
+2. Enter the npm package spec:
 
-| Half | Location | Responsibility |
-|---|---|---|
-| host half | `lib/` | Mounts two HTTP routes: `GET /dsh-archive-manager-plus/list` lists archived sessions; `POST /dsh-archive-manager-plus/delete` deletes (session directory + workspace accounting + projection cache) |
-| browser half | `client/` | Registers the `settings.section` page, renders the list + delete buttons (a `confirm` dialog first, then calls the host route) |
+   ```text
+   dsh-archive-manager-plus@0.1.8
+   ```
 
-What a delete touches on disk:
+3. Complete installation, then fully quit Harness, including its tray process, and reopen it once to load both plugin halves.
 
-1. Removes the id from `global.archivedSessionIds` in `workspace.json`
-2. Removes the id from every workspace's `sessionIds`
-3. Deletes `<DSH_HOME>/sessions/<workspace-encoded>/<session-id>/`
-4. Clears the session entry in `session_projcache.json`
+To install the newest npm release later, enter `dsh-archive-manager-plus` or use the host's plugin update action. For a local build, enter the **absolute path** to `dsh-archive-manager-plus-0.1.8.tgz`, without surrounding quotes in the input field.
 
-> The `cost-meter/ledger.json` is left alone (spend history is kept as a record).
+### Install from source on Windows
 
-## Install
-
-### 1. npm (recommended, the community standard)
+Clone or download this repository, then run the script from its root:
 
 ```powershell
-npm install dsh-archive-manager-plus
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -DryRun
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-This puts the package into your project/global `node_modules`; a DSH plugin must also be registered in a profile's bundle layer:
-
-1. In `<profile>/package.json` → `dependencies`, add `"dsh-archive-manager-plus": "^0.1.0"`
-2. In `dsh.profile.bundles`, append `"dsh-archive-manager-plus"`
-3. Run `npm install` (or `pnpm install`), confirm the package landed in the profile, restart DSH and refresh the page
-
-### 2. One-shot install script (local development)
+For a custom Harness home:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\install.ps1
+.\install.ps1 -DSHHome "D:\path\to\dsh-home" -DryRun
+.\install.ps1 -DSHHome "D:\path\to\dsh-home"
 ```
 
-The script resolves the plugin root from its own location (runnable from anywhere) and does: whitelist-copy the shipped files → register the dependency and bundle → Node self-verification (no BOM / valid JSON / entries complete) → rollback from backup on failure.
-
-| Parameter | Description |
+| Parameter | Behavior |
 |---|---|
-| `-ProfileDir <path>` | Explicit profile directory (highest priority) |
-| `-ProfileName <name>` | Profile name, default `web` |
-| `-DSHHome <path>` | DSH home (defaults to `$env:DSH_HOME`, then `~/.dsh`) |
-| `-DryRun` | Preview only, write nothing |
-| `-SkipCopy` | Skip the file copy; update the manifest only |
+| `-ProfileDir <path>` | Explicit profile directory; takes priority over home detection. |
+| `-DSHHome <path>` | Explicit home, then `DSH_HOME`, then `~/.dsh`. |
+| `-ProfileName <name>` | Select a profile; otherwise detect `desktop` first, then `web`. |
+| `-DryRun` | Preview without changing files. |
+| `-SkipCopy` | Update only the profile manifest; the plugin files must already be installed. |
+
+The script copies the plugin files, registers its dependency and bundle, and verifies the profile manifest with Node. Manifest writes use UTF-8 without BOM. It keeps a manifest backup and restores that backup if final manifest verification fails; this does **not** provide rollback for deleted sessions.
+
+### Manual profile setup
+
+If the host's plugin manager is unavailable, install into the intended profile directory:
 
 ```powershell
-.\install.ps1 -DryRun                    # preview
-.\install.ps1 -DSHHome <your-dsh-home>   # point at a specific home
+cd "<profile-directory>"
+npm install dsh-archive-manager-plus@0.1.8
 ```
 
-### 3. Manual
+Ensure that profile's `package.json` contains the dependency and bundle entry below. Merge them into the existing manifest; do not replace other dependencies or bundles.
 
-1. Copy `lib/`, `client/`, `cordis.patch.yml`, `LICENSE`, `README.md`, `package.json` to
-   `<profile>/node_modules/dsh-archive-manager-plus/`
-2. In `<profile>/package.json` → `dependencies`, add `"dsh-archive-manager-plus": "<version>"`
-3. In `dsh.profile.bundles`, append `"dsh-archive-manager-plus"`
-4. Save (UTF-8 **without BOM**), restart DSH and refresh the page
+```json
+{
+  "dependencies": {
+    "dsh-archive-manager-plus": "0.1.8"
+  },
+  "dsh": {
+    "profile": {
+      "bundles": ["dsh-archive-manager-plus"]
+    }
+  }
+}
+```
 
-> ⚠️ BOM trap: a `package.json` with a UTF-8 BOM makes DSH fail to boot with `Unexpected token '﻿'`.
-> Prefer the npm install or the one-shot script (both write BOM-less UTF-8 and self-verify).
+Save without a UTF-8 BOM, then fully quit and reopen Harness. Installing into an unrelated project directory does not activate a Harness plugin.
 
 ## Usage
 
-1. In the sidebar, open any session row's `⋯` menu → **Archive session** (archive 1–2 sessions to try)
-2. Open **Settings (gear) → Archive Manager**
-3. The list shows archived sessions: title / created time / whether the log is on disk
-4. Click **Delete** on a row → confirm → the row disappears and the disk log is removed
+**Direct deletion:** session row → `⋯` → **Delete session** → confirm. Confirmation archives the target, stops its running work, releases it, and deletes its log and related records. Canceling the dialog makes no changes.
 
-## Privacy & Security
+**Archive management:** open **Settings → Archive Manager**. Use **Restore** to unarchive a session without deleting its log, or **Delete** to remove it permanently after confirmation.
 
-- Deletion is limited to **archived sessions only**; never delete a session that is currently running (caller's responsibility)
-- Deletion removes the disk log and associated accounting; **spend history is kept**
-- In-memory host state (e.g. leftover `session.list` rows) may briefly remain visible until the next reconnect/refresh — the file and registry layers are always consistent and durable
-- The gateway accepts same-origin requests only, and session ids pass a strict format whitelist (`session-` + hex/dashes), preventing path traversal
-- All paths in this README are **placeholders** (`<DSH_HOME>`, `<profile>`…); do not paste machine paths, usernames, or session ids into issues/discussions
+Deletion is irreversible. If loading, publication, or saving is still in progress, the plugin may refuse deletion and show an error. If a later step fails, the session may remain archived; retry or inspect it in Archive Manager. Existing deletion receipts apply to sessions deleted by versions that recorded them; a leftover entry from an older version may need to be deleted once more.
 
-## Development
+## Data affected
 
-- Browser half is a hand-written CJS bundle (no build step): edit `client/client.js` and refresh the page (HMR picks it up)
-- Host half is plain ESM: edit `lib/` and restart DSH
-- After version bumps, re-run `install.ps1` to sync the manifest (no script edits needed)
+Deletion releases the loaded Agent and session, closes the log writer, and removes:
 
-### Publishing new versions (npm)
+- The session directory under `<DSH_HOME>/sessions/<encoded-workspace>/<session-id>/`.
+- Its archive/pin markers and workspace membership through the live registry.
+- Its current per-session projection-cache record and any legacy cache entry.
+- Its cached host index entries, followed by a native sidebar removal notification.
 
-1. Bump `version` in `package.json` (follow [SemVer](https://semver.org/))
-2. Verify locally: `node --check lib/*.js client/client.js` + `npm publish --dry-run`
-3. Publish: `npm publish --registry=https://registry.npmjs.org/`
-4. Create a matching GitHub release / tag (`v<version>`) to keep repository and npm in sync
+The plugin records deleted IDs in `<DSH_HOME>/storages/archive-manager-deleted.json` to repair stale state or late projection-cache writes. It does not scan for and automatically delete unrelated session logs. Historical cost ledgers are not removed.
+
+Do not include credentials, usernames, machine-specific paths, or private conversation content in public issues.
+
+## Development and verification
+
+Requires a Node version compatible with the target Harness. Verification for 0.1.8 used Node 24 and official v0.2.2-rc.1 packages.
+
+```powershell
+npm run setup:integration
+npm test
+npm run test:integration
+```
+
+The setup command installs locked test dependencies into `.compat-runtime` inside this repository. Tests use temporary data directories and an offline model adapter; they do not touch the user's Harness home or call paid models. Without these dependencies, the three official-component integration tests are explicitly skipped; a run with skipped tests is not the full release validation.
+
+`client/client.js` is a handwritten browser module bundle; `lib/` contains the host ESM modules. No build step is required. Restart the host after host-side changes.
+
+Before publishing, run the complete tests and `npm publish --dry-run`. Publish the same version from `package.json` to npm and create the matching GitHub tag/release.
 
 ## License
 
