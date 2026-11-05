@@ -10,11 +10,11 @@
 
 ## 兼容性
 
-**插件 0.1.8 针对 DeepSeek Harness v0.2.2-rc.1 适配。** 使用新版原生菜单服务，并处理新版会话发布状态。保留 v0.2.1-rc.5 的旧菜单降级路径，但本版本完整运行验证以 v0.2.2-rc.1 为准。
+**插件 0.1.9 针对 DeepSeek Harness v0.2.2-rc.1 适配。** 使用新版原生菜单服务，并处理新版会话发布状态。保留 v0.2.1-rc.5 的旧菜单降级路径，但本版本完整运行验证以 v0.2.2-rc.1 为准。
 
-**20 项测试全部通过**，其中 3 项集成测试使用锁定版本的官方 Harness 组件，覆盖原生菜单注册、停止运行中的 Agent 回合、工作区同步、普通及 zstd 日志删除、投影缓存清理，以及从持久数据重建宿主。测试确认其他会话及费用历史记录得到保留。
+运行代码与已通过 **20 项测试**的 0.1.8 相同，其中 3 项集成测试使用锁定版本的官方 Harness 组件，覆盖原生菜单注册、停止运行中的 Agent 回合、工作区同步、普通及 zstd 日志删除、投影缓存清理，以及从持久数据重建宿主。测试确认其他会话及费用历史记录得到保留。
 
-尚未手动验收桌面 Electron 界面。会话释放依赖目标版本的部分内部结构，不默认保证其他 Harness 版本的兼容性。完整范围及重现方法见 [适配报告](https://github.com/MS666666/dsh-archive-manager/blob/main/docs/compatibility-0.2.2-rc.1.md)。
+**桌面版已通过用户手动验收：**2026 年 11 月 6 日，用户确认已在桌面版验证 0.1.8，会话可以正常删除。0.1.9 仅更新文档和包版本，运行代码未改动。会话释放依赖目标版本的部分内部结构，不默认保证其他 Harness 版本的兼容性。完整范围及重现方法见 [适配报告](https://github.com/MS666666/dsh-archive-manager/blob/main/docs/compatibility-0.2.2-rc.1.md)。
 
 ## 功能
 
@@ -35,12 +35,12 @@
 2. 输入 npm 包名及版本：
 
    ```text
-   dsh-archive-manager-plus@0.1.8
+   dsh-archive-manager-plus@0.1.9
    ```
 
 3. 完成安装后，完全退出 Harness（包括托盘进程），再重新打开一次，让宿主端和浏览器端代码同时生效。
 
-以后安装 npm 最新版本可输入 `dsh-archive-manager-plus`，或使用宿主的插件更新入口。安装本地构建时，在输入框填写 `dsh-archive-manager-plus-0.1.8.tgz` 的**绝对路径**，不要加引号。
+以后安装 npm 最新版本可输入 `dsh-archive-manager-plus`，或使用宿主的插件更新入口。安装本地构建时，在输入框填写 `dsh-archive-manager-plus-0.1.9.tgz` 的**绝对路径**，不要加引号。
 
 ### Windows 源码安装
 
@@ -74,7 +74,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 
 ```powershell
 cd "<profile-directory>"
-npm install dsh-archive-manager-plus@0.1.8
+npm install dsh-archive-manager-plus@0.1.9
 ```
 
 确保该 profile 的 `package.json` 包含下面的依赖与 bundle 条目。应合并到现有配置中，不要覆盖其他依赖或 bundle。
@@ -82,7 +82,7 @@ npm install dsh-archive-manager-plus@0.1.8
 ```json
 {
   "dependencies": {
-    "dsh-archive-manager-plus": "0.1.8"
+    "dsh-archive-manager-plus": "0.1.9"
   },
   "dsh": {
     "profile": {
@@ -117,7 +117,7 @@ npm install dsh-archive-manager-plus@0.1.8
 
 ## 开发与验证
 
-需要使用目标 Harness 支持的 Node 版本。0.1.8 的验证环境为 Node 24 和官方 v0.2.2-rc.1 组件。
+需要使用目标 Harness 支持的 Node 版本。0.1.8 的运行验证环境为 Node 24 和官方 v0.2.2-rc.1 组件。
 
 ```powershell
 npm run setup:integration
