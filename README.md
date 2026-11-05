@@ -10,11 +10,11 @@ English | [中文](README.zh.md)
 
 ## Compatibility
 
-**Plugin 0.1.9 targets DeepSeek Harness v0.2.2-rc.1.** It uses the new native context-menu service and handles the updated session publication states. The legacy v0.2.1-rc.5 menu fallback remains, but the full runtime checks for this release target v0.2.2-rc.1.
+**Plugin 0.1.10 targets DeepSeek Harness v0.2.2-rc.1.** It uses the new native context-menu service and handles the updated session publication states. The legacy v0.2.1-rc.5 menu fallback remains, but the full runtime checks for this release target v0.2.2-rc.1.
 
 The unchanged runtime code passed **20 tests** in 0.1.8, including three integration tests using pinned official Harness components. They cover native menu registration, stopping an active Agent turn, workspace synchronization, plain and zstd log deletion, projection-cache cleanup, and recreating the host from persisted data. Other sessions and historical cost records are preserved.
 
-**Desktop acceptance confirmed:** on November 6, 2026, the user reported manually verifying desktop session deletion with 0.1.8 and confirmed that it works normally. Version 0.1.9 updates documentation and package metadata only; runtime code is unchanged. Session teardown uses version-specific host internals, so compatibility with other Harness versions is not assumed. See the [compatibility report](https://github.com/MS666666/dsh-archive-manager/blob/main/docs/compatibility-0.2.2-rc.1.md) for the exact scope and reproduction steps.
+**Desktop version manually verified:** on November 6, 2026, desktop session deletion was verified with 0.1.8 and confirmed to work normally. Version 0.1.10 updates documentation and package metadata only; runtime code is unchanged. Session teardown uses version-specific host internals, so compatibility with other Harness versions is not assumed. See the [compatibility report](https://github.com/MS666666/dsh-archive-manager/blob/main/docs/compatibility-0.2.2-rc.1.md) for the exact scope and reproduction steps.
 
 ## Features
 
@@ -35,12 +35,12 @@ The unchanged runtime code passed **20 tests** in 0.1.8, including three integra
 2. Enter the npm package spec:
 
    ```text
-   dsh-archive-manager-plus@0.1.9
+   dsh-archive-manager-plus@0.1.10
    ```
 
 3. Complete installation, then fully quit Harness, including its tray process, and reopen it once to load both plugin halves.
 
-To install the newest npm release later, enter `dsh-archive-manager-plus` or use the host's plugin update action. For a local build, enter the **absolute path** to `dsh-archive-manager-plus-0.1.9.tgz`, without surrounding quotes in the input field.
+To install the newest npm release later, enter `dsh-archive-manager-plus` or use the host's plugin update action. For a local build, enter the **absolute path** to `dsh-archive-manager-plus-0.1.10.tgz`, without surrounding quotes in the input field.
 
 ### Install from source on Windows
 
@@ -74,7 +74,7 @@ If the host's plugin manager is unavailable, install into the intended profile d
 
 ```powershell
 cd "<profile-directory>"
-npm install dsh-archive-manager-plus@0.1.9
+npm install dsh-archive-manager-plus@0.1.10
 ```
 
 Ensure that profile's `package.json` contains the dependency and bundle entry below. Merge them into the existing manifest; do not replace other dependencies or bundles.
@@ -82,7 +82,7 @@ Ensure that profile's `package.json` contains the dependency and bundle entry be
 ```json
 {
   "dependencies": {
-    "dsh-archive-manager-plus": "0.1.9"
+    "dsh-archive-manager-plus": "0.1.10"
   },
   "dsh": {
     "profile": {
